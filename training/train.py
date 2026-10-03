@@ -19,7 +19,13 @@ from typing import Dict, List, Tuple
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter
+
+try:
+    from torch.utils.tensorboard import SummaryWriter
+    HAS_TENSORBOARD = True
+except Exception:
+    HAS_TENSORBOARD = False
+    SummaryWriter = None
 
 from monai.losses import DiceCELoss
 from datasets import get_train_val_dataloaders
@@ -110,7 +116,9 @@ def train_segmentation_model(
     report_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    writer = SummaryWriter(log_dir=str(log_dir))
+    writer = SummaryWriter(log_dir=str(log_dir)) if HAS_TENSORBOARD else None
+    if not HAS_TENSORBOARD:
+        logger.info("TensorBoard is not installed or available. Continuing with console logging.")
 
     # 1. Transforms & Dataloaders
     train_transform = get_train_transforms(spatial_size=spatial_size, pixdim=pixdim)
@@ -191,11 +199,12 @@ def train_segmentation_model(
         val_epoch_dices.append(val_dice)
 
         # TensorBoard Logs
-        writer.add_scalar("Loss/Train", avg_train_loss, epoch)
-        writer.add_scalar("Loss/Val", val_loss, epoch)
-        writer.add_scalar("Dice/Val_Mean", val_dice, epoch)
-        writer.add_scalar("HD95/Val_Mean", val_hd95, epoch)
-        writer.add_scalar("LR", optimizer.param_groups[0]["lr"], epoch)
+        if writer is not None:
+            writer.add_scalar("Loss/Train", avg_train_loss, epoch)
+            writer.add_scalar("Loss/Val", val_loss, epoch)
+            writer.add_scalar("Dice/Val_Mean", val_dice, epoch)
+            writer.add_scalar("HD95/Val_Mean", val_hd95, epoch)
+            writer.add_scalar("LR", optimizer.param_groups[0]["lr"], epoch)
 
         logger.info(
             f"Epoch [{epoch:02d}/{epochs:02d}] -> Train Loss: {avg_train_loss:.4f} | "
@@ -236,7 +245,8 @@ def train_segmentation_model(
             logger.info(f"Early stopping triggered after {epoch} epochs (Patience={patience}).")
             break
 
-    writer.close()
+    if writer is not None:
+        writer.close()
 
     # 5. Generate Curves & Summary Reports
     loss_curve_path, dice_curve_path = plot_training_curves(

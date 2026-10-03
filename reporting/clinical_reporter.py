@@ -13,11 +13,16 @@ Generates clean, descriptive clinical reports matching professional neuroradiolo
     - Exportable as PDF and structured JSON reports.
 """
 
+import sys
 from pathlib import Path
 import json
 from typing import Dict, Optional, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
+
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 try:
     from reportlab.lib.pagesizes import letter

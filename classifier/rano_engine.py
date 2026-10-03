@@ -11,7 +11,14 @@ Categorical Output Response Grades:
     - PD: Progressive Disease (>= 25% increase in volume or appearance of new lesions)
 """
 
+import sys
+from pathlib import Path
 from typing import Dict, Optional, Union
+
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from utils.logger import get_logger
 
 logger = get_logger("PhysioRANO.RANOEngine")

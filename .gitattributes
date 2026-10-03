@@ -1,0 +1,14 @@
+# Treat binary files appropriately to prevent CRLF corruption on Windows
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pth binary
+*.pt binary
+*.pkl binary
+*.pickle binary
+*.nii binary
+*.nii.gz binary
+
+# Auto-detect text files and normalize line endings on checkout
+* text=auto

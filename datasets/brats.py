@@ -15,11 +15,38 @@ Supports deterministic 80/20 train/validation dataset splitting.
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
+import pandas as pd
 
 from monai.data import DataLoader, Dataset
 from utils.logger import get_logger
 
 logger = get_logger("PhysioRANO.BraTSDataset")
+
+
+def load_brats_clinical_df(
+    csv_path: Union[str, Path] = "data/brats2024_gli/brats_clinical.csv"
+) -> pd.DataFrame:
+    """Loads the BraTS Glioma cohort clinical and biophysical dataset.
+
+    Args:
+        csv_path (Union[str, Path]): Path to BraTS clinical CSV file.
+
+    Returns:
+        pd.DataFrame: DataFrame containing BraTS patient demographics, molecular markers,
+                      longitudinal scan intervals, segmented volumes, and recurrence labels.
+    """
+    csv_path = Path(csv_path)
+    if not csv_path.exists():
+        root_dir = Path(__file__).parent.parent
+        csv_path = root_dir / "data" / "brats2024_gli" / "brats_clinical.csv"
+
+    if not csv_path.exists():
+        logger.warning(f"BraTS clinical CSV not found at {csv_path}. Returning empty DataFrame.")
+        return pd.DataFrame()
+
+    df = pd.read_csv(csv_path)
+    logger.info(f"Loaded BraTS clinical dataset with {len(df)} patient records.")
+    return df
 
 
 def find_brats_samples(data_dir: Union[str, Path]) -> List[Dict[str, Union[List[str], str]]]:

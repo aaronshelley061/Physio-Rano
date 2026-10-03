@@ -1,0 +1,29 @@
+subject_id,patient_base_id,timepoint,AgeAtStudyDate,Sex,Sex_encoded,IDH,IDH_encoded,MGMT,MGMT_encoded,days_surgery_to_fup1,days_rt_end_to_fup1,num_followup_scans,wt_volume_cm3,tc_volume_cm3,et_volume_cm3,pinn_diffusion_D,pinn_proliferation_rho,pinn_pde_residual,target_label,target_name,edema_volume_cm3,et_to_wt_ratio
+BraTS-GLI-00001-000,BraTS-GLI-00001,0,50,M,1,Negative (Wildtype),0,Positive (Methylated),1,30.0,20.0,2,2.01,2.01,0.0,1.02322,0.96153,0.002217,0,Response / Stable,0.0,0.0
+BraTS-GLI-00002-000,BraTS-GLI-00002,0,53,F,0,Negative (Wildtype),0,Negative (Unmethylated),0,30.0,20.0,2,2.01,2.01,0.0,0.99932,0.96877,0.002464,1,True Progression,0.0,0.0
+BraTS-GLI-00005-100,BraTS-GLI-00005,100,52,M,1,Negative (Wildtype),0,Positive (Methylated),1,30.0,20.0,2,22.96,0.0,0.0,1.05792,0.82334,0.129694,2,Pseudoprogression,22.96,0.0
+BraTS-GLI-00005-101,BraTS-GLI-00005,101,52,M,1,Negative (Wildtype),0,Positive (Methylated),1,109.1,65.6,3,23.66,0.0,0.0,0.99285,0.81497,0.14184,0,Response / Stable,23.66,0.0
+BraTS-GLI-00006-100,BraTS-GLI-00006,100,48,M,1,Negative (Wildtype),0,Negative (Unmethylated),0,30.0,20.0,2,17.91,0.0,0.0,1.01304,0.84439,0.117701,1,True Progression,17.91,0.0
+BraTS-GLI-00006-101,BraTS-GLI-00006,101,48,M,1,Negative (Wildtype),0,Negative (Unmethylated),0,99.6,84.3,3,18.75,0.0,0.0,1.02644,0.85241,0.14326,1,True Progression,18.75,0.0
+BraTS-GLI-00008-100,BraTS-GLI-00008,100,41,F,0,Negative (Wildtype),0,Negative (Unmethylated),0,30.0,20.0,2,7.11,0.14,0.14,1.0338,0.96538,0.002141,1,True Progression,6.97,0.0197
+BraTS-GLI-00008-101,BraTS-GLI-00008,101,41,F,0,Negative (Wildtype),0,Negative (Unmethylated),0,135.3,56.1,3,7.84,0.07,0.07,0.99093,0.97253,0.000917,1,True Progression,7.77,0.0089
+BraTS-GLI-00008-102,BraTS-GLI-00008,102,41,F,0,Negative (Wildtype),0,Negative (Unmethylated),0,135.3,56.1,3,15.43,0.54,0.54,0.99217,0.9673,0.001535,1,True Progression,14.89,0.035
+BraTS-GLI-00008-103,BraTS-GLI-00008,103,41,F,0,Negative (Wildtype),0,Negative (Unmethylated),0,135.3,56.1,3,9.77,0.18,0.18,1.01697,0.96816,0.00141,1,True Progression,9.59,0.0184
+BraTS-GLI-00009-100,BraTS-GLI-00009,100,66,M,1,Negative (Wildtype),0,Negative (Unmethylated),0,30.0,20.0,2,79.66,6.49,6.31,0.9827,0.96177,0.022799,1,True Progression,73.17,0.0792
+BraTS-GLI-00009-101,BraTS-GLI-00009,101,66,M,1,Negative (Wildtype),0,Negative (Unmethylated),0,81.4,45.9,3,93.44,11.89,11.33,0.99654,0.90693,0.087084,1,True Progression,81.55,0.1213
+BraTS-GLI-00020-100,BraTS-GLI-00020,100,64,M,1,Positive (Mutated),1,Positive (Methylated),1,30.0,20.0,2,121.81,23.37,21.92,1.02704,0.83259,0.137152,1,True Progression,98.44,0.18
+BraTS-GLI-00020-101,BraTS-GLI-00020,101,64,M,1,Positive (Mutated),1,Positive (Methylated),1,72.9,69.6,3,134.48,30.77,29.02,0.94969,0.79939,0.160436,1,True Progression,103.71,0.2158
+BraTS-GLI-00027-100,BraTS-GLI-00027,100,57,M,1,Positive (Mutated),1,Negative (Unmethylated),0,30.0,20.0,2,39.43,4.39,4.39,1.01979,0.9639,0.004181,1,True Progression,35.04,0.1113
+BraTS-GLI-00027-101,BraTS-GLI-00027,101,57,M,1,Positive (Mutated),1,Negative (Unmethylated),0,100.8,49.7,3,39.8,6.69,6.62,0.98504,0.95593,0.066332,2,Pseudoprogression,33.11,0.1663
+BraTS-GLI-00033-100,BraTS-GLI-00033,100,58,M,1,Positive (Mutated),1,Positive (Methylated),1,30.0,20.0,2,14.26,0.0,0.0,1.00742,0.87175,0.101285,0,Response / Stable,14.26,0.0
+BraTS-GLI-00033-101,BraTS-GLI-00033,101,58,M,1,Positive (Mutated),1,Positive (Methylated),1,78.8,72.5,3,12.45,0.0,0.0,0.98857,0.89327,0.088088,0,Response / Stable,12.45,0.0
+BraTS-GLI-00046-100,BraTS-GLI-00046,100,43,M,1,Negative (Wildtype),0,Positive (Methylated),1,30.0,20.0,2,27.1,6.25,6.19,1.00381,0.95238,0.068852,0,Response / Stable,20.85,0.2284
+BraTS-GLI-00046-101,BraTS-GLI-00046,101,43,M,1,Negative (Wildtype),0,Positive (Methylated),1,95.0,81.9,3,94.86,30.22,25.31,0.99781,0.80947,0.159354,1,True Progression,64.64,0.2668
+BraTS-GLI-00060-100,BraTS-GLI-00060,100,51,M,1,Positive (Mutated),1,Positive (Methylated),1,30.0,20.0,2,75.01,9.97,9.8,1.00123,0.93574,0.088913,2,Pseudoprogression,65.04,0.1306
+BraTS-GLI-00060-101,BraTS-GLI-00060,101,51,M,1,Positive (Mutated),1,Positive (Methylated),1,129.3,72.4,3,78.95,10.89,10.89,1.05484,0.90409,0.075513,1,True Progression,68.06,0.1379
+BraTS-GLI-00063-100,BraTS-GLI-00063,100,49,F,0,Negative (Wildtype),0,Positive (Methylated),1,30.0,20.0,2,10.9,0.98,0.87,0.99098,0.96668,0.001225,2,Pseudoprogression,9.92,0.0798
+BraTS-GLI-00063-101,BraTS-GLI-00063,101,49,F,0,Negative (Wildtype),0,Positive (Methylated),1,129.8,74.3,3,77.33,10.15,9.87,1.03323,0.91884,0.067961,1,True Progression,67.18,0.1276
+BraTS-GLI-00078-100,BraTS-GLI-00078,100,43,M,1,Negative (Wildtype),0,Positive (Methylated),1,30.0,20.0,2,67.56,0.0,0.0,1.28441,0.80139,0.170943,1,True Progression,67.56,0.0
+BraTS-GLI-00078-101,BraTS-GLI-00078,101,43,M,1,Negative (Wildtype),0,Positive (Methylated),1,96.0,73.0,3,71.87,0.0,0.0,1.28822,0.80597,0.151212,1,True Progression,71.87,0.0
+BraTS-GLI-00080-100,BraTS-GLI-00080,100,57,F,0,Positive (Mutated),1,Positive (Methylated),1,30.0,20.0,2,38.49,13.31,9.2,0.99386,0.94369,0.056525,2,Pseudoprogression,25.18,0.239
+BraTS-GLI-00080-101,BraTS-GLI-00080,101,57,F,0,Positive (Mutated),1,Positive (Methylated),1,124.8,45.6,3,108.44,27.98,22.39,0.96807,0.82557,0.134012,1,True Progression,80.46,0.2065

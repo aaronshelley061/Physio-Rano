@@ -8,6 +8,7 @@ and PINN biophysical growth residuals into an XGBoost classifier to differentiat
     - Pseudoprogression / Radiation Effect (Class 2)
 """
 
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 import pickle
@@ -16,6 +17,10 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
 
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 try:
     import xgboost as xgb
     HAS_XGBOOST = True
@@ -23,7 +28,7 @@ except Exception:
     from sklearn.ensemble import GradientBoostingClassifier
     HAS_XGBOOST = False
 
-from datasets.burdenko import load_burdenko_clinical_df
+from datasets.brats import load_brats_clinical_df
 from pinn.fisher_kolmogorov import fit_patient_biophysical_pinn
 from utils.logger import get_logger
 
@@ -31,6 +36,7 @@ logger = get_logger("PhysioRANO.Classifier")
 
 
 FEATURE_COLUMNS = [
+    # Clinical & Molecular Profile
     "AgeAtStudyDate",
     "Sex_encoded",
     "IDH_encoded",
@@ -38,6 +44,13 @@ FEATURE_COLUMNS = [
     "days_surgery_to_fup1",
     "days_rt_end_to_fup1",
     "num_followup_scans",
+    # Quantitative 3D MRI Image Features
+    "wt_volume_cm3",
+    "tc_volume_cm3",
+    "et_volume_cm3",
+    "edema_volume_cm3",
+    "et_to_wt_ratio",
+    # Biophysical Reaction-Diffusion PINN Parameters
     "pinn_diffusion_D",
     "pinn_proliferation_rho",
     "pinn_pde_residual",
@@ -90,6 +103,16 @@ def prepare_multimodal_dataset(df: pd.DataFrame, compute_pinn_online: bool = Fal
             df_clean["pinn_diffusion_D"] = pinn_D
             df_clean["pinn_proliferation_rho"] = pinn_rho
             df_clean["pinn_pde_residual"] = pinn_res
+
+    # Compute derived 3D MRI volumetric & radiomic image features if not already in dataframe
+    if "edema_volume_cm3" not in df_clean.columns:
+        wt = df_clean["wt_volume_cm3"] if "wt_volume_cm3" in df_clean.columns else 30.0
+        tc = df_clean["tc_volume_cm3"] if "tc_volume_cm3" in df_clean.columns else 10.0
+        df_clean["edema_volume_cm3"] = np.maximum(0.0, wt - tc)
+    if "et_to_wt_ratio" not in df_clean.columns:
+        wt = df_clean["wt_volume_cm3"] if "wt_volume_cm3" in df_clean.columns else 30.0
+        et = df_clean["et_volume_cm3"] if "et_volume_cm3" in df_clean.columns else 12.0
+        df_clean["et_to_wt_ratio"] = np.where(wt > 0, et / np.maximum(wt, 0.1), 0.0)
 
     X = df_clean[FEATURE_COLUMNS].fillna(0.0)
     y = df_clean["target_label"].values
@@ -184,7 +207,19 @@ class MultimodalRecurrenceClassifier:
         Returns:
             Dict: Classification result containing predicted class, label, and class probabilities.
         """
-        feature_vector = np.array([[patient_features.get(col, 0.0) for col in FEATURE_COLUMNS]])
+        feats = dict(patient_features)
+        wt = float(feats.get("wt_volume_cm3", feats.get("baseline_wt_vol", 30.0)))
+        tc = float(feats.get("tc_volume_cm3", 10.0))
+        et = float(feats.get("et_volume_cm3", feats.get("vol_cm3", 12.0)))
+        feats["wt_volume_cm3"] = wt
+        feats["tc_volume_cm3"] = tc
+        feats["et_volume_cm3"] = et
+        if "edema_volume_cm3" not in feats:
+            feats["edema_volume_cm3"] = max(0.0, wt - tc)
+        if "et_to_wt_ratio" not in feats:
+            feats["et_to_wt_ratio"] = et / max(0.1, wt)
+
+        feature_vector = np.array([[float(feats.get(col, 0.0)) for col in FEATURE_COLUMNS]])
         probs = self.predict_proba(feature_vector)[0]
         pred_class = int(np.argmax(probs))
         class_names = ["Response / Stable", "True Progression", "Pseudoprogression"]
@@ -209,17 +244,17 @@ class MultimodalRecurrenceClassifier:
 
 
 def train_and_evaluate_classifier(
-    csv_path: Union[str, Path] = "data/burdenko_gbm/burdenko_clinical.csv"
+    csv_path: Union[str, Path] = "data/brats2024_gli/brats_clinical.csv"
 ) -> Tuple[MultimodalRecurrenceClassifier, Dict]:
-    """Top-level pipeline loading Burdenko data, fitting classifier, and evaluating 5-fold CV.
+    """Top-level pipeline loading BraTS Glioma data, fitting classifier, and evaluating 5-fold CV.
 
     Args:
-        csv_path (Union[str, Path]): Path to Burdenko clinical CSV.
+        csv_path (Union[str, Path]): Path to BraTS clinical CSV.
 
     Returns:
         Tuple[MultimodalRecurrenceClassifier, Dict]: Trained classifier and evaluation metrics with overfitting analysis.
     """
-    df = load_burdenko_clinical_df(csv_path)
+    df = load_brats_clinical_df(csv_path)
     if df.empty:
         logger.error("Empty DataFrame. Cannot train classifier.")
         return MultimodalRecurrenceClassifier(), {}

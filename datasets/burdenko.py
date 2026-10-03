@@ -6,10 +6,15 @@ Parses patient demographics, molecular status (IDH1/2, MGMT), treatment timeline
 recurrence outcomes (pseudo progression vs. progression vs. response/stable).
 """
 
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 import pandas as pd
 import numpy as np
+
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from monai.data import DataLoader, Dataset
 from utils.logger import get_logger

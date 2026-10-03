@@ -6,7 +6,7 @@ channel-first conversion, multi-modal stacking (T1n, T1c, T2w, T2f into a single
 resampling, foreground cropping, intensity normalization, resizing, and spatial/intensity augmentations.
 """
 
-from typing import Sequence, Tuple, Union
+from typing import Sequence, Tuple
 import numpy as np
 
 from monai.transforms import (
@@ -17,12 +17,10 @@ from monai.transforms import (
     EnsureTyped,
     LoadImaged,
     NormalizeIntensityd,
-    RandCropByPosNegLabeld,
     RandFlipd,
     RandGaussianNoised,
     RandRotated,
     RandScaleIntensityd,
-    RandSpatialCropd,
     Resized,
     Spacingd,
 )
@@ -48,8 +46,8 @@ def get_base_load_transforms(
     all_keys = load_keys + [label_key]
 
     return Compose([
-        LoadImaged(keys=all_keys, image_only=False),
-        EnsureChannelFirstd(keys=all_keys),
+        LoadImaged(keys=all_keys, image_only=False, allow_missing_keys=True),
+        EnsureChannelFirstd(keys=all_keys, allow_missing_keys=True),
         ConcatItemsd(keys=load_keys, name="image", dim=0),
     ])
 

@@ -5,9 +5,16 @@ Implements PyTorch temporal sequence modeling (LSTM / GRU network) to track
 longitudinal tumor volumetric trajectories and time-series follow-up scan dynamics.
 """
 
+import sys
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
+
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from utils.logger import get_logger
 
 logger = get_logger("PhysioRANO.TemporalModel")

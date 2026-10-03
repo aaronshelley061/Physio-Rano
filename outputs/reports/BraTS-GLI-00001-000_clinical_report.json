@@ -1,0 +1,38 @@
+{
+  "patient_id": "BraTS-GLI-00001-000",
+  "demographics": {
+    "Age": 50.0,
+    "Sex": "Male",
+    "IDH": "Negative (Wildtype)",
+    "MGMT": "Positive (Methylated)",
+    "days_rt_end_to_fup1": 20.0
+  },
+  "descriptive_findings": {
+    "whole_tumor_volume_cm3": 24.5,
+    "tumor_core_volume_cm3": 12.2,
+    "enhancing_tumor_volume_cm3": 18.5,
+    "tissue_diffusion_rate_mm2_per_day": 0.9835982918739319,
+    "cell_proliferation_rate_per_day": 0.7277866005897522,
+    "pseudoprogression_probability_pct": 27.73727940452139,
+    "volumetric_change_pct": 54.166666666666664,
+    "rano2_category": "Progressive Disease (PD)"
+  },
+  "recurrence_classification": {
+    "predicted_class": 1,
+    "predicted_label": "True Progression",
+    "probabilities": {
+      "Response / Stable": 0.287306739920157,
+      "True Progression": 0.43532046603462904,
+      "Pseudoprogression": 0.2773727940452139
+    },
+    "pseudoprogression_risk_percent": 27.73727940452139
+  },
+  "rano2_evaluation": {
+    "rano_category": "PD",
+    "rano_category_name": "Progressive Disease (PD)",
+    "enhancing_tumor_change_pct": 54.166666666666664,
+    "whole_tumor_change_pct": 26.666666666666668,
+    "pseudoprogression_flag": false,
+    "clinical_guidance": "Significant volumetric expansion (>= 25%) or new lesion indicative of true tumor progression."
+  }
+}

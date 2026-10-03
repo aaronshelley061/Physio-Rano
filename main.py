@@ -12,7 +12,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from utils.logger import setup_logger, get_logger
 from utils.helpers import set_seed
-from datasets import download_brats_dataset, get_brats_dataloader, get_burdenko_dataloader
+from datasets import download_brats_dataset, get_brats_dataloader, load_brats_clinical_df
 from preprocessing import get_train_transforms, get_val_transforms
 
 

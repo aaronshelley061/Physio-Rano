@@ -11,6 +11,7 @@ from .brats import (
     get_train_val_dataloaders,
     find_brats_samples,
     split_brats_samples,
+    load_brats_clinical_df,
 )
 from .burdenko import BurdenkoLongitudinalDataset, get_burdenko_dataloader, load_burdenko_clinical_df
 from .downloader import download_brats_dataset
@@ -21,6 +22,7 @@ __all__ = [
     "get_train_val_dataloaders",
     "find_brats_samples",
     "split_brats_samples",
+    "load_brats_clinical_df",
     "BurdenkoLongitudinalDataset",
     "get_burdenko_dataloader",
     "load_burdenko_clinical_df",

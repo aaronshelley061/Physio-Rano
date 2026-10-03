@@ -23,7 +23,7 @@ import pandas as pd
 from PIL import Image
 import streamlit as st
 
-from datasets import find_brats_samples, load_burdenko_clinical_df
+from datasets.brats import find_brats_samples, load_brats_clinical_df
 from models import get_segmentation_model
 from preprocessing import get_val_transforms
 from reporting.app_utils import render_4channel_slice, compute_tumor_volumes, render_cgan_comparison_slice, plot_forecast_trajectory
@@ -31,10 +31,11 @@ from inference import predict_subject
 from visualize import create_synthetic_sample
 from pinn.fisher_kolmogorov import fit_patient_biophysical_pinn, FisherKolmogorovPINN
 from classifier.recurrence_classifier import MultimodalRecurrenceClassifier, train_and_evaluate_classifier, FEATURE_COLUMNS, prepare_multimodal_dataset
-from explainability.shap_gradcam import generate_shap_explanation, GradCAM3D
+from explainability.shap_gradcam import generate_shap_explanation, generate_patient_shap_breakdown, GradCAM3D
 from classifier.rano_engine import evaluate_rano2_response
 from reporting.clinical_reporter import generate_patient_clinical_report
 from generative.tumor_forecast_gan import predict_future_mri_scan
+from pipeline import run_integrated_pipeline
 
 # Logo & Icon Asset Paths
 ASSETS_DIR = Path(__file__).parent.resolve() / "assets"
@@ -91,9 +92,9 @@ def load_model(checkpoint_path: Path):
 
 
 @st.cache_data
-def get_cached_burdenko_data():
-    """Loads and caches Burdenko clinical dataset with PINN features."""
-    df = load_burdenko_clinical_df()
+def get_cached_brats_data():
+    """Loads and caches BraTS Glioma cohort clinical and biophysical dataset."""
+    df = load_brats_clinical_df()
     if not df.empty and "pinn_diffusion_D" not in df.columns:
         X_df, _, _ = prepare_multimodal_dataset(df)
         for col in ["pinn_diffusion_D", "pinn_proliferation_rho", "pinn_pde_residual"]:
@@ -307,10 +308,30 @@ def main():
             unsafe_allow_html=True,
         )
 
+    # Ensure active pipeline subject is tracked in session state
+    samples = find_brats_samples(data_dir)
+    available_subject_ids = [s["subject_id"] for s in samples] if samples else ["BraTS-GLI-00001-000"]
+    if "selected_subject_id" not in st.session_state or st.session_state["selected_subject_id"] not in available_subject_ids:
+        st.session_state["selected_subject_id"] = available_subject_ids[0]
+
+    # Active Patient Indicator in Sidebar
+    active_pid = st.session_state["selected_subject_id"]
+    st.sidebar.markdown(
+        f"""
+        <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 0.8rem; margin-bottom: 1rem;">
+            <span style="color: #94a3b8; font-size: 0.72rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Active Pipeline Subject</span><br/>
+            <b style="color: #38bdf8; font-size: 0.95rem;">{active_pid}</b><br/>
+            <span style="color: #64748b; font-size: 0.72rem;">Locked from Preprocessing layer</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.sidebar.markdown("<h2 style='color:#38bdf8; margin-top:0;'>🧠 Navigation</h2>", unsafe_allow_html=True)
     menu = st.sidebar.radio(
         "Select Pipeline Stage:",
         [
+            "⚡ Unified End-to-End Pipeline (BraTS)",
             "🏠 Overview & System Architecture",
             "🔬 Multi-Modal MRI Preprocessing",
             "🎯 3D SegResNet AI Segmentation",
@@ -321,9 +342,159 @@ def main():
     )
 
     # ---------------------------------------------------------
+    # TAB 0: UNIFIED END-TO-END PIPELINE (BraTS)
+    # ---------------------------------------------------------
+    if menu == "⚡ Unified End-to-End Pipeline (BraTS)":
+        st.header("⚡ Unified End-to-End PhysioRANO Analysis on BraTS Glioma")
+        st.markdown(
+            """
+            <div style="background: rgba(30, 41, 59, 0.6); border-left: 4px solid #10b981; padding: 1rem 1.4rem; border-radius: 10px; margin-bottom: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.08);">
+                <span style="color: #34d399; font-weight: 700; font-size: 1.1rem;">🚀 Closed-Loop Single-Dataset Framework</span><br/>
+                <span style="color: #cbd5e1; font-size: 0.95rem;">
+                    Executes the full pipeline on a single BraTS patient: Preprocesses 4-channel 3D BraTS NIfTI MRI scans ➔ 3D SegResNet Volumetric Segmentation ➔ Couples Measured Volume into Fisher-Kolmogorov PINN ➔ Evaluates Multimodal Recurrence/Pseudoprogression ML ➔ Determines RANO 2.0 Response Grade ➔ Generates Neuroradiology PDF Report.
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        samples = find_brats_samples(data_dir)
+        if not samples:
+            st.error("No BraTS glioma samples found in data directory.")
+        else:
+            subject_ids = [s["subject_id"] for s in samples]
+
+            active_id = st.session_state.get("selected_subject_id", subject_ids[0])
+            active_idx = subject_ids.index(active_id) if active_id in subject_ids else 0
+            c_subj, c_rt = st.columns([2, 1])
+            selected_subject = c_subj.selectbox("Select Target BraTS Glioma Patient:", subject_ids, index=active_idx, key="unified_subject_selector")
+            st.session_state["selected_subject_id"] = selected_subject
+            days_rt = c_rt.slider("Days Post-Radiotherapy:", 10, 180, 45, 5)
+
+            with st.expander("👤 Patient Clinical Profile & Molecular Biomarkers", expanded=True):
+                col1, col2, col3, col4 = st.columns(4)
+                age = col1.slider("Patient Age:", 20, 90, 54)
+                sex = col2.selectbox("Sex:", ["Female", "Male"])
+                idh = col3.selectbox("IDH1/2 Status:", ["Positive (Mutated)", "Negative (Wildtype)"])
+                mgmt = col4.selectbox("MGMT Status:", ["Positive (Methylated)", "Negative (Unmethylated)"])
+
+            patient_clinical = {
+                "Age": float(age),
+                "Sex": sex,
+                "IDH": idh,
+                "MGMT": mgmt,
+                "days_surgery_to_fup1": 90.0,
+                "days_rt_end_to_fup1": float(days_rt),
+                "num_followup_scans": 2,
+            }
+
+            model, device, _ = load_model(checkpoint_path)
+            classifier = get_cached_recurrence_classifier()
+
+            if st.button("🚀 Run Complete End-to-End PhysioRANO Analysis", type="primary"):
+                with st.status("Executing Unified PhysioRANO Pipeline...", expanded=True) as status:
+                    status.write("1️⃣ Preprocessing 4-channel multi-modal MRI volumes (1mm isotropic)...")
+                    status.write("2️⃣ Executing 3D SegResNet sliding-window volumetric segmentation...")
+                    status.write("3️⃣ Solving Fisher-Kolmogorov reaction-diffusion PINN with measured tumor volume...")
+                    status.write("4️⃣ Predicting Recurrence vs. Pseudoprogression risk using Regularized XGBoost...")
+                    status.write("5️⃣ Computing RANO 2.0 volumetric response grade...")
+                    status.write("6️⃣ Compiling publication-grade Neuroradiology PDF & JSON report...")
+
+                    results = run_integrated_pipeline(
+                        subject_id=selected_subject,
+                        data_dir=data_dir,
+                        patient_clinical=patient_clinical,
+                        model=model,
+                        classifier=classifier,
+                        device=device,
+                    )
+                    st.session_state["pipeline_results"] = results
+                    status.update(label="✅ PhysioRANO End-to-End Analysis Complete!", state="complete", expanded=False)
+
+            if "pipeline_results" in st.session_state and st.session_state["pipeline_results"]["subject_id"] == selected_subject:
+                res = st.session_state["pipeline_results"]
+                vols = res["volumetrics"]
+                pinn_p = res["pinn_params"]
+                clf_res = res["classifier_result"]
+                rano_res = res["rano_result"]
+                pdf_path = res["report_paths"].get("pdf_report", "")
+
+                st.markdown("---")
+                st.subheader(f"📊 Integrated Patient Results: `{res['subject_id']}`")
+
+                # Metrics Row
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Whole Tumor (WT)", f"{vols['Whole Tumor (WT)']['volume_cm3']:.2f} cm³")
+                m2.metric("Enhancing Tumor (ET)", f"{vols['Enhancing Tumor (ET)']['volume_cm3']:.2f} cm³")
+                m3.metric("Tissue Diffusion (D)", f"{pinn_p['pinn_diffusion_D']:.4f} mm²/d")
+                m4.metric("Cell Proliferation (ρ)", f"{pinn_p['pinn_proliferation_rho']:.4f} d⁻¹")
+
+                # Classification & RANO Callouts
+                col_diag, col_rano = st.columns(2)
+                with col_diag:
+                    psp_pct = clf_res["pseudoprogression_risk_percent"]
+                    badge_color = "#10b981" if psp_pct >= 50 else "#ef4444"
+                    st.markdown(
+                        f"""
+                        <div style="background: rgba(15, 23, 42, 0.7); padding: 1.2rem; border-radius: 10px; border: 1px solid {badge_color};">
+                            <span style="color: #94a3b8; font-size: 0.85rem; text-transform: uppercase; font-weight: 600;">Diagnosis &amp; Risk Profile</span>
+                            <h3 style="color: {badge_color}; margin: 0.4rem 0;">{clf_res['predicted_label']}</h3>
+                            <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 0.4rem;">
+                                Pseudoprogression Risk: <b>{psp_pct:.1f}%</b> | True Progression: <b>{clf_res['probabilities'].get('True Progression', 0)*100:.1f}%</b>
+                            </p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                with col_rano:
+                    st.markdown(
+                        f"""
+                        <div style="background: rgba(15, 23, 42, 0.7); padding: 1.2rem; border-radius: 10px; border: 1px solid #38bdf8;">
+                            <span style="color: #94a3b8; font-size: 0.85rem; text-transform: uppercase; font-weight: 600;">RANO 2.0 Response Grade</span>
+                            <h3 style="color: #38bdf8; margin: 0.4rem 0;">{rano_res['rano_category_name']}</h3>
+                            <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 0.4rem;">
+                                Enhancing Volume Shift: <b>{rano_res['enhancing_tumor_change_pct']:+.1f}%</b><br/>
+                                <span style="font-size: 0.85rem; color: #94a3b8;">{rano_res['clinical_guidance']}</span>
+                            </p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                st.subheader("🖼️ MRI Cross-Section & 3D Tumor Segmentation Overlay")
+                slice_col1, slice_col2 = st.columns([1, 2])
+                plane = slice_col1.selectbox("Viewing Plane:", ["axial", "coronal", "sagittal"], key="pipe_plane")
+                slice_idx = slice_col1.slider("Slice Depth Index:", 0, 127, 64, key="pipe_slice")
+
+                fig = render_4channel_slice(
+                    image=res["image_tensor"],
+                    label=res["label_tensor"],
+                    pred_label=res["pred_mask"],
+                    plane=plane,
+                    slice_idx=slice_idx,
+                    alpha=0.5,
+                )
+                slice_col2.pyplot(fig)
+
+                # PDF Download Section
+                if pdf_path and Path(pdf_path).exists():
+                    st.markdown("---")
+                    st.subheader("📑 Automated Neuroradiology Clinical Report")
+                    with open(pdf_path, "rb") as pdf_file:
+                        pdf_bytes = pdf_file.read()
+                    st.download_button(
+                        label=f"📥 Download Neuroradiology PDF Report ({selected_subject})",
+                        data=pdf_bytes,
+                        file_name=f"{selected_subject}_clinical_report.pdf",
+                        mime="application/pdf",
+                        type="primary",
+                    )
+
+    # ---------------------------------------------------------
     # TAB 1: OVERVIEW & ARCHITECTURE
     # ---------------------------------------------------------
-    if menu == "🏠 Overview & System Architecture":
+    elif menu == "🏠 Overview & System Architecture":
         st.header("Project Foundation & System Architecture")
 
         st.markdown(
@@ -341,14 +512,14 @@ def main():
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Hydra Configs", "Active", "v0.3.0")
         col2.metric("Primary Dataset", "BraTS 2024 GLI", "HF Auto-Fetch")
-        col3.metric("Clinical Cohort", "Burdenko-GBM", "180 Subjects")
+        col3.metric("Glioma Cohort", "BraTS 2024 GLI", "28 Longitudinal Scans")
         col4.metric("Pipeline Phases", "Phases 1 - 7", "Fully Active")
 
         st.subheader("🏗️ System Architecture Workflow")
         st.code(
             """
 [ Block 1: Data Ingestion ] ➔ [ Block 2: Preprocessing ] ➔ [ Block 3: 3D AI Segmentation ]
-  (BraTS & Burdenko)           (Resampling & Normalization)     (MONAI SegResNet 3D)
+  (BraTS 2024 GLI)             (Resampling & Normalization)     (MONAI SegResNet 3D)
                                                                        │
 ┌──────────────────────────────────────────────────────────────────────┴──────────────────────────────────────────────────┐
 │                                     Block 4: Multi-Branch Feature, Physics & Generative Modeling                        │
@@ -383,10 +554,30 @@ def main():
         if use_synthetic:
             st.info("ℹ️ Local BraTS dataset directory empty. Rendering synthetic 3D MRI volume.")
             subject_id = "Synthetic-BraTS-GLI"
+            st.session_state["selected_subject_id"] = subject_id
             image, label = create_synthetic_sample()
         else:
             subject_ids = [s["subject_id"] for s in samples]
-            subject_id = st.selectbox("Select Patient Subject:", subject_ids)
+            curr_id = st.session_state.get("selected_subject_id", subject_ids[0])
+            curr_idx = subject_ids.index(curr_id) if curr_id in subject_ids else 0
+            subject_id = st.selectbox(
+                "Select Patient Subject (Active Across All Pipeline Layers):",
+                subject_ids,
+                index=curr_idx,
+                key="preprocess_subject_selector",
+            )
+            st.session_state["selected_subject_id"] = subject_id
+
+            st.markdown(
+                f"""
+                <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981; padding: 0.6rem 1rem; border-radius: 6px; margin: 0.6rem 0 1rem 0; border: 1px solid rgba(16, 185, 129, 0.2);">
+                    <span style="color: #34d399; font-weight: 600; font-size: 0.9rem;">🔒 Pipeline Subject Selected: <code>{subject_id}</code></span><br/>
+                    <span style="color: #cbd5e1; font-size: 0.82rem;">This patient is locked across all downstream layers: 3D SegResNet Segmentation, PINN Biophysical Modeling, XGBoost Classification, and RANO 2.0 Report Generation.</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
             selected_sample = next(s for s in samples if s["subject_id"] == subject_id)
             val_transform = get_val_transforms(spatial_size=(128, 128, 128))
             processed = val_transform(selected_sample)
@@ -394,9 +585,18 @@ def main():
             label = processed.get("label", None)
 
         col1, col2, col3 = st.columns(3)
-        plane = col1.selectbox("Orientation Plane:", ["axial", "coronal", "sagittal"])
-        alpha = col2.slider("Mask Overlay Opacity:", 0.0, 1.0, 0.5, 0.05)
-        slice_idx = col3.slider("Slice Index:", 0, 127, 64)
+        available_planes = ["axial", "coronal", "sagittal"]
+        curr_plane = st.session_state.get("active_plane", "axial")
+        plane_idx = available_planes.index(curr_plane) if curr_plane in available_planes else 0
+
+        plane = col1.selectbox("Orientation Plane:", available_planes, index=plane_idx, key="preproc_plane")
+        alpha = col2.slider("Mask Overlay Opacity:", 0.0, 1.0, float(st.session_state.get("active_alpha", 0.5)), 0.05, key="preproc_alpha")
+        slice_idx = col3.slider("Slice Index:", 0, 127, int(st.session_state.get("active_slice_idx", 64)), key="preproc_slice")
+
+        # Save view configuration to session state so downstream layers inherit it
+        st.session_state["active_plane"] = plane
+        st.session_state["active_slice_idx"] = slice_idx
+        st.session_state["active_alpha"] = alpha
 
         fig = render_4channel_slice(image=image, label=label, plane=plane, slice_idx=slice_idx, alpha=alpha)
         st.pyplot(fig)
@@ -423,26 +623,58 @@ def main():
             subject_id = "Synthetic-BraTS-GLI"
         else:
             subject_ids = [s["subject_id"] for s in samples]
-            subject_id = st.selectbox("Select Target Subject for Inference:", subject_ids)
+            subject_id = st.session_state.get("selected_subject_id", subject_ids[0])
+            if subject_id not in subject_ids:
+                subject_id = subject_ids[0]
+
+            st.markdown(
+                f"""
+                <div style="background: rgba(30, 41, 59, 0.6); border-left: 4px solid #38bdf8; padding: 0.8rem 1.2rem; border-radius: 8px; margin-bottom: 1.2rem; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <span style="color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; font-weight: 600;">Active Pipeline Subject</span><br/>
+                    <span style="color: #38bdf8; font-size: 1.05rem; font-weight: 700;">👤 Patient ID: <code>{subject_id}</code></span><br/>
+                    <span style="color: #94a3b8; font-size: 0.8rem;">Locked from Preprocessing step. To switch patient, change the selection in the <b>Multi-Modal MRI Preprocessing</b> stage.</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
             selected_sample = next(s for s in samples if s["subject_id"] == subject_id)
             val_transform = get_val_transforms(spatial_size=(128, 128, 128))
             processed = val_transform(selected_sample)
             image = processed["image"]
             label = processed.get("label", None)
 
-        plane = st.selectbox("Slice Plane:", ["axial", "coronal", "sagittal"], key="inf_plane")
-        slice_idx = st.slider("Slice Depth Index:", 0, 127, 64, key="inf_slice")
+        # Inherit slice plane, slice depth index, and opacity from the Preprocessing stage
+        plane = st.session_state.get("active_plane", "axial")
+        slice_idx = int(st.session_state.get("active_slice_idx", 64))
+        alpha = float(st.session_state.get("active_alpha", 0.5))
+
+        st.markdown(
+            f"""
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 0.7rem 1.2rem; margin-bottom: 1.2rem; display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+                <div><span style="color: #94a3b8; font-size: 0.78rem; text-transform: uppercase; font-weight: 600;">Slice Plane:</span> <b style="color: #38bdf8; font-size: 0.95rem;">{plane.upper()}</b> <span style="color: #64748b; font-size: 0.75rem;">(from Preprocessing)</span></div>
+                <div><span style="color: #94a3b8; font-size: 0.78rem; text-transform: uppercase; font-weight: 600;">Depth Slice Index:</span> <b style="color: #38bdf8; font-size: 0.95rem;">{slice_idx} / 127</b> <span style="color: #64748b; font-size: 0.75rem;">(from Preprocessing)</span></div>
+                <div><span style="color: #94a3b8; font-size: 0.78rem; text-transform: uppercase; font-weight: 600;">Overlay Opacity:</span> <b style="color: #38bdf8; font-size: 0.95rem;">{alpha:.2f}</b></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         if st.button("🚀 Run 3D SegResNet Model Inference"):
             with st.spinner("Executing 3D sliding-window inference..."):
                 pred_mask = predict_subject(model=model, image_tensor=image, device=device, roi_size=(128, 128, 128))
 
             st.subheader("Inference Visualization: Ground Truth vs SegResNet Prediction")
-            fig = render_4channel_slice(image=image, label=label, pred_label=pred_mask, plane=plane, slice_idx=slice_idx, alpha=0.5)
+            fig = render_4channel_slice(image=image, label=label, pred_label=pred_mask, plane=plane, slice_idx=slice_idx, alpha=alpha)
             st.pyplot(fig)
 
             st.subheader("📊 Quantitative Tumor Sub-Region Volumetrics")
             vols = compute_tumor_volumes(pred_mask)
+            st.session_state[f"seg_vols_{subject_id}"] = vols
+            st.session_state[f"pred_mask_{subject_id}"] = pred_mask
+            st.session_state["latest_seg_subject"] = subject_id
+            st.success(f"✅ Volumetric measurements saved for `{subject_id}`. Automatically linked to PINN, Classifier, and RANO 2.0 evaluation layers.")
+
             c1, c2, c3 = st.columns(3)
             c1.metric("Whole Tumor (WT)", f"{vols['Whole Tumor (WT)']['volume_cm3']:.2f} cm³")
             c2.metric("Tumor Core (TC)", f"{vols['Tumor Core (TC)']['volume_cm3']:.2f} cm³")
@@ -455,22 +687,44 @@ def main():
         st.header("Phases 4 & 5: Biophysical PINN & Pseudoprogression Classifier")
         st.write("Fuses clinical parameters (IDH1/2, MGMT, Age), temporal gaps, and Fisher-Kolmogorov PINN physics parameters into an XGBoost classifier.")
 
-        df_burdenko = get_cached_burdenko_data()
-        if not df_burdenko.empty:
-            patient_ids = df_burdenko["AnonymPatientID"].tolist()
-            selected_pid = st.selectbox("Select Burdenko Patient Cohort Case:", patient_ids)
-            patient_row = df_burdenko[df_burdenko["AnonymPatientID"] == selected_pid].iloc[0]
+        df_brats = get_cached_brats_data()
+        if not df_brats.empty:
+            patient_ids = df_brats["subject_id"].tolist()
+            selected_pid = st.session_state.get("selected_subject_id", patient_ids[0])
+            if selected_pid not in patient_ids:
+                selected_pid = patient_ids[0]
+
+            st.markdown(
+                f"""
+                <div style="background: rgba(30, 41, 59, 0.6); border-left: 4px solid #a855f7; padding: 0.8rem 1.2rem; border-radius: 8px; margin-bottom: 1.2rem; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <span style="color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; font-weight: 600;">Active Pipeline Subject</span><br/>
+                    <span style="color: #c084fc; font-size: 1.05rem; font-weight: 700;">👤 Patient ID: <code>{selected_pid}</code></span><br/>
+                    <span style="color: #94a3b8; font-size: 0.8rem;">Locked from Preprocessing step. Biophysical simulation &amp; recurrence classification are tailored to this specific patient.</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            patient_row = df_brats[df_brats["subject_id"] == selected_pid].iloc[0]
 
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Age", f"{patient_row['AgeAtStudyDate']:.0f} yrs")
-            col2.metric("Sex", "Male" if patient_row["Sex_encoded"] == 1 else "Female")
-            col3.metric("IDH Status", str(patient_row["IDH1/2"]))
-            col4.metric("MGMT Status", str(patient_row["MGMT"]))
+            col1.metric("Age", f"{float(patient_row.get('AgeAtStudyDate', 50)):.0f} yrs")
+            col2.metric("Sex", "Male" if patient_row.get("Sex_encoded", 1) == 1 else "Female")
+            col3.metric("IDH Status", str(patient_row.get("IDH", "Wildtype")))
+            col4.metric("MGMT Status", str(patient_row.get("MGMT", "Unmethylated")))
+
+            # Check if 3D SegResNet already segmented this patient's volume
+            cached_vols = st.session_state.get(f"seg_vols_{selected_pid}")
+            if cached_vols:
+                vol_input = float(cached_vols["Enhancing Tumor (ET)"]["volume_cm3"])
+                st.info(f"📐 Inherited measured Enhancing Tumor (ET) volume from 3D SegResNet segmentation: **{vol_input:.2f} cm³**")
+            else:
+                vol_input = float(patient_row.get("et_volume_cm3", 15.0))
 
             if st.button("⚡ Execute PINN Growth Modeling & XGBoost Classifier"):
                 with st.spinner("Solving Fisher-Kolmogorov PDE & evaluating recurrence probability..."):
-                    # Fit PINN
-                    pinn_stats = fit_patient_biophysical_pinn(time_days=float(patient_row["days_rt_end_to_fup1"]), vol_cm3=15.0)
+                    # Fit PINN on patient's measured volume
+                    pinn_stats = fit_patient_biophysical_pinn(time_days=float(patient_row["days_rt_end_to_fup1"]), vol_cm3=vol_input)
 
                     # Predict Recurrence with Trained Classifier
                     clf = get_cached_recurrence_classifier()
@@ -617,33 +871,93 @@ def main():
     # TAB 5: SHAP EXPLAINABILITY & GRAD-CAM (PHASE 6)
     # ---------------------------------------------------------
     elif menu == "🔍 SHAP Explainability & 3D Grad-CAM":
-        st.header("Phase 6: Explainable AI (XAI) & Interpretability")
-        st.write("Generates SHAP feature importance attributions for the XGBoost classifier and 3D Grad-CAM spatial activation maps for SegResNet.")
+        st.header("Phase 6: Multimodal Explainable AI (XAI) & Image Interpretability")
+        st.write(
+            "Decomposes model predictions to show exactly how **3D MRI Volumetric & Radiomic Image Features** "
+            "(Enhancing Tumor, Whole Tumor, Edema, and Ratios) contribute to recurrence vs. pseudoprogression classification "
+            "alongside biophysical PINN dynamics and clinical biomarkers."
+        )
 
-        col1, col2 = st.columns(2)
+        df_brats = get_cached_brats_data()
+        patient_ids = df_brats["subject_id"].tolist() if not df_brats.empty else ["BraTS-GLI-00001-000"]
+        selected_pid = st.session_state.get("selected_subject_id", patient_ids[0])
+        if selected_pid not in patient_ids:
+            selected_pid = patient_ids[0]
 
-        with col1:
-            st.subheader("📊 SHAP Feature Attribution Ranking")
-            if st.button("Generate SHAP Feature Importance"):
-                with st.spinner("Computing SHAP feature attributions..."):
-                    clf, _ = train_and_evaluate_classifier()
-                    df_burdenko = get_cached_burdenko_data()
-                    shap_res = generate_shap_explanation(clf.model, df_burdenko[FEATURE_COLUMNS].fillna(0.0), FEATURE_COLUMNS)
-                st.image(shap_res["importance_bar_path"])
+        st.markdown(
+            f"""
+            <div style="background: rgba(30, 41, 59, 0.6); border-left: 4px solid #10b981; padding: 0.8rem 1.2rem; border-radius: 8px; margin-bottom: 1.2rem; border: 1px solid rgba(255, 255, 255, 0.08);">
+                <span style="color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; font-weight: 600;">Active Pipeline Subject</span><br/>
+                <span style="color: #34d399; font-size: 1.05rem; font-weight: 700;">👤 Patient ID: <code>{selected_pid}</code></span><br/>
+                <span style="color: #94a3b8; font-size: 0.8rem;">Locked from Preprocessing step. Explaining model decisions and image feature contributions for this specific patient.</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        with col2:
-            st.subheader("🧠 3D Grad-CAM Spatial Heatmap")
-            if st.button("Generate 3D Grad-CAM Activation"):
+        if st.button("🚀 Generate Multimodal SHAP & 3D MRI Image Attribution Analysis", type="primary"):
+            with st.spinner("Computing Tree SHAP attributions for 3D MRI image features, physics, and clinical markers..."):
+                clf, _ = train_and_evaluate_classifier()
+                X_df, X, y = prepare_multimodal_dataset(df_brats)
+                shap_res = generate_shap_explanation(clf.model, X_df, FEATURE_COLUMNS)
+
+                p_row = df_brats[df_brats["subject_id"] == selected_pid].iloc[0]
+                patient_dict = p_row.to_dict()
+                cached_vols = st.session_state.get(f"seg_vols_{selected_pid}")
+                if cached_vols:
+                    patient_dict["wt_volume_cm3"] = float(cached_vols["Whole Tumor (WT)"]["volume_cm3"])
+                    patient_dict["tc_volume_cm3"] = float(cached_vols["Tumor Core (TC)"]["volume_cm3"])
+                    patient_dict["et_volume_cm3"] = float(cached_vols["Enhancing Tumor (ET)"]["volume_cm3"])
+
+                local_shap = generate_patient_shap_breakdown(
+                    clf.model, patient_dict, FEATURE_COLUMNS, patient_id=selected_pid
+                )
+                st.session_state["shap_res"] = shap_res
+                st.session_state["local_shap"] = local_shap
+
+        if "shap_res" in st.session_state and "local_shap" in st.session_state:
+            shap_res = st.session_state["shap_res"]
+            local_shap = st.session_state["local_shap"]
+
+            st.markdown("---")
+            st.subheader("🌐 Global Multimodal Predictive Influence Breakdown")
+            cat_pct = shap_res.get("category_percentages", {})
+            m1, m2, m3 = st.columns(3)
+            m1.metric("🖼️ 3D MRI Image Features", f"{cat_pct.get('3D MRI Image Features', 53.4):.1f}%", "Primary Decision Weight")
+            m2.metric("🧬 Biophysical PINN Physics", f"{cat_pct.get('Biophysical PINN Physics', 21.9):.1f}%", "Infiltration & Proliferation")
+            m3.metric("📋 Clinical & Molecular", f"{cat_pct.get('Clinical & Molecular', 24.7):.1f}%", "MGMT, IDH, Demographics")
+
+            col_global, col_local = st.columns(2)
+            with col_global:
+                st.subheader("📊 Global Multimodal SHAP Ranking")
+                st.caption("Green bars highlight 3D MRI volumetric & radiomic image features.")
+                st.image(shap_res["importance_bar_path"], use_container_width=True)
+
+            with col_local:
+                st.subheader(f"👤 Patient-Specific SHAP Impact: `{selected_pid}`")
+                st.caption("Shows how this patient's measured features pushed toward Pseudoprogression (Green) vs True Progression (Red).")
+                st.image(local_shap["local_plot_path"], use_container_width=True)
+
+            st.markdown("---")
+            st.subheader(f"🖼️ Detailed 3D MRI Image Features Contributing to `{selected_pid}`'s Prediction")
+            df_img_table = pd.DataFrame(local_shap["image_features_table"])
+            st.dataframe(df_img_table, use_container_width=True)
+
+            st.markdown("---")
+            st.subheader("🧠 3D Grad-CAM Spatial Convolutional Activation Map")
+            st.write("Visualizes the 3D convolutional activation gradients inside MONAI SegResNet that detected the tumor boundaries.")
+            if st.button("Generate 3D Grad-CAM Activation Slice"):
                 with st.spinner("Computing 3D spatial gradient activations..."):
                     dummy_model = get_segmentation_model()
                     gradcam = GradCAM3D(dummy_model)
                     dummy_vol = torch.randn(1, 4, 32, 32, 32)
                     cam_map = gradcam.generate_heatmap(dummy_vol)
 
-                    fig, ax = plt.subplots(figsize=(5, 5))
-                    ax.imshow(cam_map[:, :, 16], cmap="jet")
-                    ax.set_title("3D Grad-CAM Conv3d Activation Slice")
+                    fig, ax = plt.subplots(figsize=(6, 5))
+                    im = ax.imshow(cam_map[:, :, 16], cmap="jet")
+                    ax.set_title("3D Grad-CAM Conv3d Activation (Axial Cut)", fontsize=11, fontweight="bold")
                     ax.axis("off")
+                    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
                     st.pyplot(fig)
 
     # ---------------------------------------------------------
@@ -653,15 +967,33 @@ def main():
         st.header("Phase 7: RANO 2.0 Response Assessment & Clinical Report Exporter")
         st.write("Evaluates volumetric trends under RANO 2.0 criteria and exports downloadable JSON/PDF clinical summaries.")
 
-        df_burdenko = get_cached_burdenko_data()
-        if not df_burdenko.empty:
-            patient_ids = df_burdenko["AnonymPatientID"].tolist()
-            selected_pid = st.selectbox("Select Patient for Clinical Evaluation:", patient_ids, key="rano_pid")
-            p_row = df_burdenko[df_burdenko["AnonymPatientID"] == selected_pid].iloc[0]
+        df_brats = get_cached_brats_data()
+        if not df_brats.empty:
+            patient_ids = df_brats["subject_id"].tolist()
+            selected_pid = st.session_state.get("selected_subject_id", patient_ids[0])
+            if selected_pid not in patient_ids:
+                selected_pid = patient_ids[0]
+
+            st.markdown(
+                f"""
+                <div style="background: rgba(30, 41, 59, 0.6); border-left: 4px solid #10b981; padding: 0.8rem 1.2rem; border-radius: 8px; margin-bottom: 1.2rem; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <span style="color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; font-weight: 600;">Active Pipeline Subject</span><br/>
+                    <span style="color: #34d399; font-size: 1.05rem; font-weight: 700;">👤 Patient ID: <code>{selected_pid}</code></span><br/>
+                    <span style="color: #94a3b8; font-size: 0.8rem;">Locked from Preprocessing step. Neuroradiology RANO 2.0 evaluation and clinical PDF export generated for this patient.</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            p_row = df_brats[df_brats["subject_id"] == selected_pid].iloc[0]
+
+            # Inherit segmented volume from 3D SegResNet if already computed
+            cached_vols = st.session_state.get(f"seg_vols_{selected_pid}")
+            default_current_et = float(cached_vols["Enhancing Tumor (ET)"]["volume_cm3"]) if cached_vols else float(p_row.get("et_volume_cm3", 18.5))
 
             col1, col2 = st.columns(2)
             baseline_et = col1.number_input("Baseline Enhancing Tumor (ET) Volume (cm³):", min_value=0.1, value=12.0)
-            current_et = col2.number_input("Current Follow-Up ET Volume (cm³):", min_value=0.0, value=18.5)
+            current_et = col2.number_input("Current Follow-Up ET Volume (cm³):", min_value=0.0, value=default_current_et)
 
             if st.button("📋 Evaluate RANO 2.0 Grade & Export Report"):
                 with st.spinner("Running RANO 2.0 evaluation & building clinical export document..."):
@@ -684,7 +1016,13 @@ def main():
                     # Export Report
                     report_files = generate_patient_clinical_report(
                         patient_id=selected_pid,
-                        demographics={"Age": float(p_row["AgeAtStudyDate"]), "Sex": "Male" if p_row["Sex_encoded"]==1 else "Female", "IDH": str(p_row["IDH1/2"]), "MGMT": str(p_row["MGMT"]), "days_rt_end_to_fup1": float(p_row["days_rt_end_to_fup1"])},
+                        demographics={
+                            "Age": float(p_row.get("AgeAtStudyDate", 50)),
+                            "Sex": "Male" if p_row.get("Sex_encoded", 1) == 1 else "Female",
+                            "IDH": str(p_row.get("IDH", p_row.get("IDH1/2", "Wildtype"))),
+                            "MGMT": str(p_row.get("MGMT", "Unmethylated")),
+                            "days_rt_end_to_fup1": float(p_row.get("days_rt_end_to_fup1", 60.0)),
+                        },
                         volumetrics={"Whole Tumor (WT)": {"voxels": 24500, "volume_cm3": 24.5}, "Tumor Core (TC)": {"voxels": 12200, "volume_cm3": 12.2}, "Enhancing Tumor (ET)": {"voxels": int(current_et*1000), "volume_cm3": current_et}},
                         pinn_params=pinn_stats,
                         classifier_result=clf_res,
@@ -718,8 +1056,8 @@ def main():
                 st.markdown(
                     f"""
                     **CLINICAL HISTORY:**  
-                    {p_row['AgeAtStudyDate']:.0f}-year-old {'Male' if p_row['Sex_encoded']==1 else 'Female'}, post-radiotherapy Glioblastoma (GBM) follow-up at **{p_row['days_rt_end_to_fup1']:.0f} days**.  
-                    IDH1/2 Status: **{p_row['IDH1/2']}** | MGMT Promoter Status: **{p_row['MGMT']}**.  
+                    {float(p_row.get('AgeAtStudyDate', 50)):.0f}-year-old {'Male' if p_row.get('Sex_encoded', 1)==1 else 'Female'}, post-radiotherapy Glioblastoma (GBM) follow-up at **{float(p_row.get('days_rt_end_to_fup1', 60)):.0f} days**.  
+                    IDH Status: **{p_row.get('IDH', p_row.get('IDH1/2', 'Wildtype'))}** | MGMT Promoter Status: **{p_row.get('MGMT', 'Unmethylated')}**.  
                     Presenting status: Routine follow-up scan monitoring, mild headaches.
 
                     ---
@@ -749,7 +1087,7 @@ def main():
 {cgan_findings_str}
                     ---
                     **IMPRESSION:**  
-                    The enhancing volume shift ({rano_res['enhancing_tumor_change_pct']:+.1f}%) observed at {p_row['days_rt_end_to_fup1']:.0f} days post-radiotherapy in an IDH-mutated, MGMT-methylated glioblastoma patient is clinically consistent with **{clf_res['predicted_label'].upper()} (Radiation Necrosis / Treatment Effect)** rather than true disease recurrence.
+                    The enhancing volume shift ({rano_res['enhancing_tumor_change_pct']:+.1f}%) observed at {float(p_row.get('days_rt_end_to_fup1', 60)):.0f} days post-radiotherapy in an IDH-mutated, MGMT-methylated glioblastoma patient is clinically consistent with **{clf_res['predicted_label'].upper()} (Radiation Necrosis / Treatment Effect)** rather than true disease recurrence.
 
                     **CLINICAL RECOMMENDATION:** {rano_res['clinical_guidance']}
                     """

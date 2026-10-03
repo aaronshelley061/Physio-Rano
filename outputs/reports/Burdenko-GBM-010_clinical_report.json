@@ -1,0 +1,96 @@
+{
+  "patient_id": "Burdenko-GBM-010",
+  "demographics": {
+    "Age": 49.0,
+    "Sex": "Male",
+    "IDH": "negative",
+    "MGMT": "negative",
+    "days_rt_end_to_fup1": 20.0
+  },
+  "descriptive_findings": {
+    "whole_tumor_volume_cm3": 24.5,
+    "tumor_core_volume_cm3": 12.2,
+    "enhancing_tumor_volume_cm3": 18.54,
+    "tissue_diffusion_rate_mm2_per_day": 1.0259580612182617,
+    "cell_proliferation_rate_per_day": 0.7233675718307495,
+    "pseudoprogression_probability_pct": 30.866125295688175,
+    "volumetric_change_pct": 52.71828665568368,
+    "rano2_category": "Progressive Disease (PD)",
+    "cgan_forecast": {
+      "delta_t_days": 90.0,
+      "clinical_scenario": "Accelerated Progression",
+      "forecasted_volumes": {
+        "Whole Tumor (WT)": {
+          "volume_cm3": 480.28
+        },
+        "Tumor Core (TC)": {
+          "volume_cm3": 447.73
+        },
+        "Enhancing Tumor (ET)": {
+          "volume_cm3": 263.72
+        }
+      },
+      "volume_changes_pct": {
+        "Whole Tumor (WT)": 133.3,
+        "Tumor Core (TC)": 133.3,
+        "Enhancing Tumor (ET)": 133.3
+      },
+      "trajectory": [
+        {
+          "days": 0,
+          "wt_vol_cm3": 205.84,
+          "tc_vol_cm3": 191.9,
+          "et_vol_cm3": 113.03
+        },
+        {
+          "days": 30,
+          "wt_vol_cm3": 297.32,
+          "tc_vol_cm3": 277.17,
+          "et_vol_cm3": 163.26
+        },
+        {
+          "days": 60,
+          "wt_vol_cm3": 388.8,
+          "tc_vol_cm3": 362.45,
+          "et_vol_cm3": 213.49
+        },
+        {
+          "days": 90,
+          "wt_vol_cm3": 480.28,
+          "tc_vol_cm3": 447.73,
+          "et_vol_cm3": 263.72
+        },
+        {
+          "days": 120,
+          "wt_vol_cm3": 571.76,
+          "tc_vol_cm3": 533.01,
+          "et_vol_cm3": 313.95
+        },
+        {
+          "days": 180,
+          "wt_vol_cm3": 617.53,
+          "tc_vol_cm3": 575.69,
+          "et_vol_cm3": 339.08
+        }
+      ]
+    }
+  },
+  "recurrence_classification": {
+    "predicted_class": 1,
+    "predicted_label": "True Progression",
+    "probabilities": {
+      "Response / Stable": 0.10938955674303837,
+      "True Progression": 0.5819491903000799,
+      "Pseudoprogression": 0.30866125295688174
+    },
+    "pseudoprogression_risk_percent": 30.866125295688175
+  },
+  "rano2_evaluation": {
+    "rano_category": "PD",
+    "rano_category_name": "Progressive Disease (PD)",
+    "enhancing_tumor_change_pct": 52.71828665568368,
+    "whole_tumor_change_pct": 26.666666666666668,
+    "pseudoprogression_flag": false,
+    "clinical_guidance": "Significant volumetric expansion (>= 25%) or new lesion indicative of true tumor progression."
+  }
+}

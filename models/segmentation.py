@@ -5,9 +5,16 @@ Constructs MONAI SegResNet / SegResNetDS 3D convolutional network architecture
 optimized for multi-modal BraTS 2024 GLI tumor segmentation.
 """
 
+import sys
+from pathlib import Path
 from typing import Optional
 import torch
 import torch.nn as nn
+
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from monai.networks.nets import SegResNet
 from utils.logger import get_logger
 
