@@ -3,6 +3,12 @@
 PhysioRANO is a PyTorch and MONAI-based research framework designed for neuro-oncology medical imaging analysis (BraTS 2024 GLI and longitudinal Burdenko datasets), 3D tumor segmentation, physics-informed biophysical growth modeling, explainable AI (XAI), and automated RANO 2.0 clinical response assessment.
 
 ---
+### 👥 Team Members
+| Roll No | Name | Role & Contribution |
+| :--- | :--- | :--- |
+| <B23CS2115> | <ANNA NEENA BRIGHT> (Lead) | Pipeline, RANO 2.0 Engine, Unit Testing |
+| <B23CS2147> | <NANDANA B PRASANTH> | Biophysical PINN, Recurrence Classifier |
+| <B23CS2101> | <AARON SHELLY KOSHY> | Streamlit UI, CI/CD Pipeline & Deployment |
 
 ## 🏗️ System Architecture Overview
 
