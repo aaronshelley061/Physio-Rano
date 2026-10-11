@@ -1,3 +1,6 @@
+[![CI](https://github.com/aaronshelley061/Physio-Rano/actions/workflows/ci.yml/badge.svg)](https://github.com/aaronshelley061/Physio-Rano/actions/workflows/ci.yml)
+
+
 # 🧠 PhysioRANO: Physiological & Physics-Informed Neuro-Oncology Framework
 
 PhysioRANO is a PyTorch and MONAI-based research framework designed for neuro-oncology medical imaging analysis (BraTS 2024 GLI and longitudinal Burdenko datasets), 3D tumor segmentation, physics-informed biophysical growth modeling, explainable AI (XAI), and automated RANO 2.0 clinical response assessment.
