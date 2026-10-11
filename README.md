@@ -152,3 +152,8 @@ Execute 3D segmentation inference:
 ```bash
 python predict.py
 ```
+## 🧪 Running Unit Tests
+Execute the automated test suite with PyTest:
+```bash
+pytest tests/ -v
+
