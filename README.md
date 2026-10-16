@@ -9,9 +9,9 @@ PhysioRANO is a PyTorch and MONAI-based research framework designed for neuro-on
 ### 👥 Team Members
 | Roll No | Name | Role & Contribution |
 | :--- | :--- | :--- |
-| <B23CS2115> | <ANNA NEENA BRIGHT> (Lead) | Pipeline, RANO 2.0 Engine, Unit Testing |
-| <B23CS2147> | <NANDANA B PRASANTH> | Biophysical PINN, Recurrence Classifier |
-| <B23CS2101> | <AARON SHELLY KOSHY> | Streamlit UI, CI/CD Pipeline & Deployment |
+| B23CS2115 | ANNA NEENA BRIGHT (Lead) | Pipeline, RANO 2.0 Engine, Unit Testing |
+| B23CS2147 | NANDANA B PRASANTH | Biophysical PINN, Recurrence Classifier |
+| B23CS2101 | AARON SHELLY KOSHY | Streamlit UI, CI/CD Pipeline & Deployment |
 
 ## 🏗️ System Architecture Overview
 
